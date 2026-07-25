@@ -1,6 +1,10 @@
 # CodecUI
 
-Turn any DataFixerUpper **`Codec`** into an editable **`Schema`** - declare the edit surface
+This project is open source and you are welcome to include in your mods.
+
+Please dont clone this code in your mods as doing so will not make your codecs available to other mods using codecui.
+
+Codec UI purpose is turning any DataFixerUpper **`Codec`** into an editable **`Schema`**: declare the edit surface
 explicitly, or let the bundled inference engine derive one from an existing codec - then render
 your own editor UI from it. Ships the schema vocabulary **and** the resolver; the UI is yours.
 

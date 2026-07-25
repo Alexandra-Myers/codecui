@@ -6,15 +6,13 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jspecify.annotations.Nullable;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 // Side-channel storage for the ordered (fieldName, fieldCodec) pairs accumulated per
-// RecordCodecBuilder, populated by the RCB-construction mixins. WeakHashMap by builder
-// identity so transient builders don't leak.
+// RecordCodecBuilder, populated by the RCB-construction mixins. See WeakTags for why the maps are
+// identity-keyed and why the field codecs are held weakly.
 public final class RecordFieldTags {
-
-    private static final Map<RecordCodecBuilder<?, ?>, List<Entry>> TAGS =
-            Collections.synchronizedMap(new WeakHashMap<>());
 
     // Exactly one of elementCodec / mapCodec is non-null: elementCodec from the
     // of(getter, name, codec) form, mapCodec carrying the whole MapCodec from the
@@ -23,9 +21,30 @@ public final class RecordFieldTags {
                         @Nullable Codec<?> elementCodec,
                         @Nullable MapCodec<?> mapCodec) {}
 
+    // Map-resident form of Entry.
+    private record Stored(String name,
+                          @Nullable WeakReference<Codec<?>> elementCodec,
+                          @Nullable WeakReference<MapCodec<?>> mapCodec) {
+
+        static Stored of(Entry entry) {
+            return new Stored(entry.name(), WeakTags.weakRef(entry.elementCodec()),
+                    WeakTags.weakRef(entry.mapCodec()));
+        }
+
+        // Null once the field codec has been collected, which can only happen after the key died.
+        @Nullable Entry toEntry() {
+            Codec<?> element = WeakTags.deref(elementCodec);
+            MapCodec<?> map = WeakTags.deref(mapCodec);
+            if (element == null && map == null) return null;
+            return new Entry(name, element, map);
+        }
+    }
+
+    private static final Map<RecordCodecBuilder<?, ?>, List<Stored>> TAGS = WeakTags.identityKeyed();
+
     public static void single(RecordCodecBuilder<?, ?> builder, String name, Codec<?> fieldCodec) {
-        if (builder == null) return;
-        TAGS.put(builder, List.of(new Entry(name, fieldCodec, null)));
+        if (builder == null || fieldCodec == null) return;
+        TAGS.put(builder, List.of(new Stored(name, new WeakReference<>(fieldCodec), null)));
     }
 
     // The on-disk field name comes from the MapCodec's keys(); without one we skip tagging
@@ -34,7 +53,7 @@ public final class RecordFieldTags {
         if (builder == null || mapCodec == null) return;
         String name = extractFirstKey(mapCodec);
         if (name == null) return;
-        TAGS.put(builder, List.of(new Entry(name, null, mapCodec)));
+        TAGS.put(builder, List.of(new Stored(name, null, new WeakReference<>(mapCodec))));
     }
 
     private static @Nullable String extractFirstKey(MapCodec<?> mapCodec) {
@@ -52,16 +71,16 @@ public final class RecordFieldTags {
     // function position through map, which must not lose the fields gathered so far.
     public static void copy(RecordCodecBuilder<?, ?> from, RecordCodecBuilder<?, ?> to) {
         if (from == null || to == null || from == to) return;
-        List<Entry> v = TAGS.get(from);
+        List<Stored> v = TAGS.get(from);
         if (v != null && !v.isEmpty()) TAGS.put(to, v);
     }
 
     public static void concat(RecordCodecBuilder<?, ?> result, RecordCodecBuilder<?, ?>... inputs) {
         if (result == null) return;
-        ArrayList<Entry> merged = new ArrayList<>();
+        ArrayList<Stored> merged = new ArrayList<>();
         for (RecordCodecBuilder<?, ?> in : inputs) {
             if (in == null) continue;
-            List<Entry> sub = TAGS.get(in);
+            List<Stored> sub = TAGS.get(in);
             if (sub != null) merged.addAll(sub);
         }
         if (!merged.isEmpty()) {
@@ -69,24 +88,28 @@ public final class RecordFieldTags {
         }
     }
 
-    public static List<Entry> get(RecordCodecBuilder<?, ?> builder) {
-        if (builder == null) return List.of();
-        List<Entry> v = TAGS.get(builder);
-        return v == null ? List.of() : v;
-    }
-
     // Output side: entries re-keyed by the built MapCodec. The resolver rebuilds the
     // Schema.Record FRESH each lookup, so a companion registered after RCB.build() still wins.
 
-    private static final Map<MapCodec<?>, List<Entry>> BUILT_TAGS =
-            Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<MapCodec<?>, List<Stored>> BUILT_TAGS = WeakTags.identityKeyed();
 
-    public static void onBuilt(MapCodec<?> result, List<Entry> entries) {
-        if (result == null || entries == null || entries.isEmpty()) return;
-        BUILT_TAGS.put(result, List.copyOf(entries));
+    public static void transferBuilt(RecordCodecBuilder<?, ?> builder, MapCodec<?> result) {
+        if (builder == null || result == null) return;
+        List<Stored> entries = TAGS.get(builder);
+        if (entries == null || entries.isEmpty()) return;
+        BUILT_TAGS.put(result, entries);
     }
 
     public static @Nullable List<Entry> getBuilt(MapCodec<?> result) {
-        return BUILT_TAGS.get(result);
+        if (result == null) return null;
+        List<Stored> stored = BUILT_TAGS.get(result);
+        if (stored == null) return null;
+        List<Entry> entries = new ArrayList<>(stored.size());
+        for (Stored s : stored) {
+            Entry entry = s.toEntry();
+            if (entry == null) return null;
+            entries.add(entry);
+        }
+        return List.copyOf(entries);
     }
 }
