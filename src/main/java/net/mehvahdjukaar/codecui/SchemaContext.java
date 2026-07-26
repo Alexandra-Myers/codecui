@@ -1,9 +1,10 @@
 package net.mehvahdjukaar.codecui;
 
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 public class SchemaContext {
-    private static RegistryAccess registries = RegistryAccess.EMPTY;
+    private static RegistryAccess registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
 
     // Get the current RegistryAccess
     public static RegistryAccess getRegistries() {
