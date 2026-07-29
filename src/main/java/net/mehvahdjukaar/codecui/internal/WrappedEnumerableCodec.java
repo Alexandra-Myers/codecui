@@ -6,7 +6,6 @@ import net.mehvahdjukaar.codecui.EnumerableCodec;
 import net.mehvahdjukaar.codecui.SchemaContext;
 import net.minecraft.core.RegistryAccess;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -55,29 +54,6 @@ public class WrappedEnumerableCodec<A> implements Codec<A>, EnumerableCodec {
     @Override
     public Codec<A> withLifecycle(Lifecycle lifecycle) {
         return performOperationOnWrapped(wrapped -> wrapped.withLifecycle(lifecycle));
-    }
-
-    // Non-static withAlternative methods added in DFU 9 (1.21.11)
-    //? >=1.21.11 {
-    @Override
-    public Codec<A> withAlternative(Codec<? extends A> alternative) {
-        return performOperationOnWrapped(wrapped -> wrapped.withAlternative(alternative));
-    }
-
-    @Override
-    public <U> Codec<A> withAlternative(Codec<U> alternative, Function<U, A> converter) {
-        return performOperationOnWrapped(wrapped -> wrapped.withAlternative(alternative, converter));
-    }
-    //?}
-
-    @Override
-    public Codec<List<A>> listOf() {
-        return performOperationOnWrapped(Codec::listOf);
-    }
-
-    @Override
-    public Codec<List<A>> listOf(int minSize, int maxSize) {
-        return performOperationOnWrapped(wrapped -> wrapped.listOf(minSize, maxSize));
     }
 
     @Override
