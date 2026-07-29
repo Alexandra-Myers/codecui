@@ -125,7 +125,8 @@ public final class CuratedSchemas {
         // Structural inference (especially NeoForge's reflective path) builds a schema whose
         // re-encode doesn't round-trip, so a valid on-disk component fails to decode from the rebuilt
         // form. It's also too rich to edit as a form. Curate it as opaque: validated raw JSON that
-        // round-trips exactly.
+        // round-trips exactly. The schema naming its own key codec pins this tag permanently, which
+        // is fine only because the codec is a static singleton (see registerCompanion).
         SchemaCodecs.registerCompanion(ComponentSerialization.CODEC, new Schema.Opaque<>(ComponentSerialization.CODEC, null));
     }
 

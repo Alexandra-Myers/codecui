@@ -87,6 +87,11 @@ public final class SchemaCodecs {
      * Manually register a schema for a codec that can't be auto-introspected (opaque
      * {@code Codec.of(enc, dec)} wrappers, etc.). After registration, any resolution of this
      * codec - including nested inside another - finds the hand-crafted schema first.
+     *
+     * <p>Registrations are keyed weakly, but the schema itself is held strongly. So if {@code codec}
+     * is built per instance rather than being a static singleton, don't put it inside its own schema
+     * ({@code Schema.Opaque} over it, or a {@code Schema.Custom} widgetDef bound to it) - that makes
+     * the entry reach its own key and it can never be collected.
      */
     public static <A> void registerCompanion(Codec<A> codec, Schema<A> schema) {
         SchemaTags.tag(codec, schema);

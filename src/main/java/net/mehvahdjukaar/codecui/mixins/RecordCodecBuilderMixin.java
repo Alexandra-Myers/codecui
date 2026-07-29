@@ -13,8 +13,6 @@ import net.mehvahdjukaar.codecui.internal.SchemaTags;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-import java.util.List;
-
 // Captures per-field information during RecordCodecBuilder construction so the MapCodec
 // returned by build(...) can carry a real Schema.Record; without this the anonymous MapCodec
 // is fully opaque. Coverage: only the of(...) entry points are tagged - dependent(...) and
@@ -53,10 +51,7 @@ public abstract class RecordCodecBuilderMixin {
             MapCodec<?> result,
             @Local(argsOnly = true) App<?, ?> builderBox) {
         try {
-            RecordCodecBuilder<?, ?> builder = RecordCodecBuilder.unbox((App) builderBox);
-            List<RecordFieldTags.Entry> entries = RecordFieldTags.get(builder);
-            if (entries.isEmpty()) return result;
-            RecordFieldTags.onBuilt(result, entries);
+            RecordFieldTags.transferBuilt(RecordCodecBuilder.unbox((App) builderBox), result);
         } catch (Throwable ignored) {
         }
         return result;

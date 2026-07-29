@@ -63,7 +63,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         try {
             return resolveCodec(codec, cache);
         } finally {
-            if (owner) cache.clear();
+            // remove(), not clear(): an IdentityHashMap keeps its grown table after clear(), so a
+            // one-off resolve over a big codec graph would park that table on the thread forever.
+            if (owner) CACHE.remove();
         }
     }
 
@@ -74,7 +76,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         try {
             return resolveMapCodec(codec, cache);
         } finally {
-            if (owner) cache.clear();
+            if (owner) CACHE.remove();
         }
     }
 
